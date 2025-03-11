@@ -4,6 +4,7 @@
 #define DRAWING
 #include <stdio.h>
 #include "stm32_kit/uart.h"
+#include "renderer_defines.h"
 
 // ANSI escape sequences reference:
 // - https://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html#cursor-navigation
@@ -91,10 +92,10 @@ void set_black_color()
     // flush();
 }
 
-void set_color(unsigned int color)
+void set_color(RGB color)
 {
     char str[20];
-    USART3_write(str, sprintf(str, "\x1b[48;2;%d;%d;%dm", (color >> 16) % 256, (color >> 8) % 256, color % 256));
+    USART3_write(str, sprintf(str, "\x1b[48;2;%d;%d;%dm", color.red, color.green, color.blue));
 }
 
 void set_grayscale(unsigned char scale)

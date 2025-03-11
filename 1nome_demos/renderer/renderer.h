@@ -6,43 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "drawing.h"
-
-typedef struct
-{
-    float x, y, z;
-} vertex3d;
-
-typedef struct
-{
-    int v1, v2, v3;
-    unsigned int color;
-} triangle;
-
-typedef struct
-{
-    vertex3d *vertices;
-    triangle *triangles;
-    int nVertices, nTriangles;
-    float posX, posY, posZ;
-    float scaleX, scaleY, scaleZ;
-    float rotX, rotY, rotZ;
-} object3d;
-
-typedef struct
-{
-    float posX, posY, posZ;
-    float targetX, targetY, targetZ;
-    float upX, upY, upZ;
-    float near;
-} camera;
+#include "renderer_defines.h"
 
 const float piFourths = 0.785398163398f;
 const float piHalfs = 1.5707963268f;
-
-// constant cube
-vertex3d CubeVs[] = {{-0.5, -0.5, -0.5}, {-0.5, -0.5, 0.5}, {-0.5, 0.5, -0.5}, {-0.5, 0.5, 0.5}, {0.5, -0.5, -0.5}, {0.5, -0.5, 0.5}, {0.5, 0.5, -0.5}, {0.5, 0.5, 0.5}};
-triangle CubeTs[] = {{2, 0, 1, 0xD00000}, {2, 3, 1, 0xD00000}, {0, 4, 5, 0xD0D000}, {0, 1, 5, 0xD0D000}, {1, 5, 7, 0x00D000}, {1, 3, 7, 0x00D000}, {2, 6, 4, 0x0000D0}, {2, 0, 4, 0x0000D0}, {4, 6, 7, 0xD0D0D0}, {4, 5, 7, 0xD0D0D0}, {6, 2, 3, 0xD06010}, {6, 7, 3, 0xD06010}};
-const object3d CubeO = {CubeVs, CubeTs, 8, 12, 0, 0, 0, 1, 1, 1, 0, 0, 0};
 
 // funcs for rendering
 float edgeF(vertex3d start, vertex3d end, vertex3d point)
@@ -50,20 +17,20 @@ float edgeF(vertex3d start, vertex3d end, vertex3d point)
     return (point.x - start.x) * (end.y - start.y) - (point.y - start.y) * (end.x - start.x);
 }
 
-vertex3d bbMin(int iTriangle, triangle *triangles, vertex3d *vertices)
+vertex3d bbMin(vertex3d v1, vertex3d v2, vertex3d v3)
 {
     vertex3d ret;
-    ret.x = floorf(fminf(fminf(vertices[triangles[iTriangle].v1].x, vertices[triangles[iTriangle].v2].x), vertices[triangles[iTriangle].v3].x));
-    ret.y = floorf(fminf(fminf(vertices[triangles[iTriangle].v1].y, vertices[triangles[iTriangle].v2].y), vertices[triangles[iTriangle].v3].y));
+    ret.x = floorf(fminf(fminf(v1.x, v2.x), v3.x));
+    ret.y = floorf(fminf(fminf(v1.y, v2.y), v3.y));
     ret.z = 0;
     return ret;
 }
 
-vertex3d bbMax(int iTriangle, triangle *triangles, vertex3d *vertices)
+vertex3d bbMax(vertex3d v1, vertex3d v2, vertex3d v3)
 {
     vertex3d ret;
-    ret.x = ceilf(fmaxf(fmaxf(vertices[triangles[iTriangle].v1].x, vertices[triangles[iTriangle].v2].x), vertices[triangles[iTriangle].v3].x));
-    ret.y = ceilf(fmaxf(fmaxf(vertices[triangles[iTriangle].v1].y, vertices[triangles[iTriangle].v2].y), vertices[triangles[iTriangle].v3].y));
+    ret.x = ceilf(fmaxf(fmaxf(v1.x, v2.x), v3.x));
+    ret.y = ceilf(fmaxf(fmaxf(v1.y, v2.y), v3.y));
     ret.z = 0;
     return ret;
 }
@@ -119,7 +86,7 @@ void rasterize(triangle *triangles, int nTriangles, vertex3d *vertices, int xRes
             continue;
         }
 
-        vertex3d bbul = bbMin(i, triangles, vertices);
+        vertex3d bbul = bbMin(v1, v2, v3);
         if (bbul.x < 1)
         {
             bbul.x = 1;
@@ -128,7 +95,7 @@ void rasterize(triangle *triangles, int nTriangles, vertex3d *vertices, int xRes
         {
             bbul.y = 1;
         }
-        vertex3d bblr = bbMax(i, triangles, vertices);
+        vertex3d bblr = bbMax(v1, v2, v3);
         if (bblr.x > xRes)
         {
             bblr.x = xRes;
@@ -144,7 +111,10 @@ void rasterize(triangle *triangles, int nTriangles, vertex3d *vertices, int xRes
         {
             for (int y = bbul.y; y <= bblr.y; y++)
             {
-                vertex3d pixel = {(float)x - 0.5f, (float)y - 0.5f};
+                // can be simplified to
+                vertex3d pixel = {x, y};
+                // without sacrificing much quality
+                //vertex3d pixel = {(float)x - 0.5f, (float)y - 0.5f};
                 bool draw = 1;
                 float w3 = edgeF(v1, v2, pixel);
                 float w1 = edgeF(v2, v3, pixel);
@@ -154,15 +124,17 @@ void rasterize(triangle *triangles, int nTriangles, vertex3d *vertices, int xRes
                 draw &= w3 >= 0;
                 if (draw)
                 {
-                    w1 /= area;
-                    w2 /= area;
-                    w3 /= area;
-                    float z = 1.0f / (v1.z * w1 + v2.z * w2 + v3.z * w3);
-                    if (z < zBuffer[(y - 1) * xRes + x - 1])
+                    // w1 /= area;
+                    // w2 /= area;
+                    // w3 /= area;
+                    // float z = 1.0f / (v1.z * w1 + v2.z * w2 + v3.z * w3);
+                    float z = area / (v1.z * w1 + v2.z * w2 + v3.z * w3);
+                    int idx = (y - 1) * xRes + x - 1;
+                    if (z < zBuffer[idx])
                     {
                         // move_to(y, x);
                         // draw_pixel();
-                        zBuffer[(y - 1) * xRes + x - 1] = z;
+                        zBuffer[idx] = z;
                     }
                 }
             }
@@ -187,7 +159,7 @@ void rasterize2(triangle *triangles, int nTriangles, vertex3d *vertices, int xRe
             continue;
         }
 
-        vertex3d bbul = bbMin(i, triangles, vertices);
+        vertex3d bbul = bbMin(v1, v2, v3);
         if (bbul.x < 1)
         {
             bbul.x = 1;
@@ -196,7 +168,7 @@ void rasterize2(triangle *triangles, int nTriangles, vertex3d *vertices, int xRe
         {
             bbul.y = 1;
         }
-        vertex3d bblr = bbMax(i, triangles, vertices);
+        vertex3d bblr = bbMax(v1, v2, v3);
         if (bblr.x > xRes)
         {
             bblr.x = xRes;
@@ -275,6 +247,17 @@ void rotate3dX(vertex3d *v, float theta)
     v->z = sinf(theta) * temp + cosf(theta) * v->z;
 }
 
+void rotate3dX_vec(vertex3d *v, int n, float theta)
+{
+    float cosine = cosf(theta);
+    float sine = sinf(theta);
+    for(int i = 0; i < n; i++){
+        float temp = v[i].y;
+        v[i].y = cosine * v[i].y - sine * v[i].z;
+        v[i].z = sine * temp + cosine * v[i].z;
+    }
+}
+
 // 3d vertex coords rotation around y-axis
 void rotate3dY(vertex3d *v, float theta)
 {
@@ -283,12 +266,34 @@ void rotate3dY(vertex3d *v, float theta)
     v->z = -sinf(theta) * temp + cosf(theta) * v->z;
 }
 
+void rotate3dY_vec(vertex3d *v, int n, float theta)
+{
+    float cosine = cosf(theta);
+    float sine = sinf(theta);
+    for(int i = 0; i < n; i++){
+        float temp = v[i].x;
+        v[i].x = cosine * v[i].x + sine * v[i].z;
+        v[i].z = -sine * temp + cosine * v[i].z;
+    }
+}
+
 // 3d vertex coords rotation around z-axis
 void rotate3dZ(vertex3d *v, float theta)
 {
     float temp = v->x;
     v->x = cosf(theta) * v->x - sinf(theta) * v->y;
     v->y = sinf(theta) * temp + cosf(theta) * v->y;
+}
+
+void rotate3dZ_vec(vertex3d *v, int n, float theta)
+{
+    float cosine = cosf(theta);
+    float sine = sinf(theta);
+    for(int i = 0; i < n; i++){
+        float temp = v[i].x;
+        v[i].x = cosine * v[i].x - sine * v[i].y;
+        v[i].y = sine * temp + cosine * v[i].y;
+    }
 }
 
 // working with objects
@@ -388,11 +393,6 @@ vertex3d triangleNormal(vertex3d v1, vertex3d v2, vertex3d v3)
     return ret;
 }
 
-unsigned int rgb(int red, int green, int blue)
-{
-    return red << 16 | green << 8 | blue;
-}
-
 void calculateLight(triangle *triangle, vertex3d *vertices, vertex3d skyDir)
 {
     vertex3d normal = triangleNormal(vertices[triangle->v1], vertices[triangle->v2], vertices[triangle->v3]);
@@ -402,8 +402,9 @@ void calculateLight(triangle *triangle, vertex3d *vertices, vertex3d skyDir)
     {
         cos = 0;
     }
-    unsigned int color = triangle->color;
-    triangle->color = rgb(((color >> 16) % 256) * cos, ((color >> 8) % 256) * cos, (color % 256) * cos);
+    triangle->color.red *= cos;
+    triangle->color.green *= cos;
+    triangle->color.blue *= cos;
 }
 
 void putObjectToWorld(object3d *obj, vertex3d *vertices, triangle *triangles, int vertexOffset, vertex3d skyDir)
@@ -413,12 +414,13 @@ void putObjectToWorld(object3d *obj, vertex3d *vertices, triangle *triangles, in
     memcpy(triangles, obj->triangles, obj->nTriangles * sizeof(triangle));
     // int copied = Ticks;
 
+    rotate3dX_vec(vertices, obj->nVertices, obj->rotX);
+    rotate3dY_vec(vertices, obj->nVertices, obj->rotY);
+    rotate3dZ_vec(vertices, obj->nVertices, obj->rotZ);
+
     for (int i = 0; i < obj->nVertices; i++)
     {
         scale3d(vertices + i, obj->scaleX, obj->scaleY, obj->scaleZ);
-        rotate3dX(vertices + i, obj->rotX);
-        rotate3dY(vertices + i, obj->rotY);
-        rotate3dZ(vertices + i, obj->rotZ);
         translate3d(vertices + i, obj->posX, obj->posY, obj->posZ);
     }
     //int moved = Ticks;
