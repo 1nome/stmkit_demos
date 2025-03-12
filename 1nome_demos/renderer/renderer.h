@@ -169,6 +169,56 @@ void rasterize(triangle *triangles, int nTriangles, vertex3d *vertices, int xRes
     //drawZBuffer(zBuffer, xRes, yRes);
 }
 
+void vertexSwap(vertex3d* a, vertex3d* b){
+    vertex3d temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void intSwap(int* a, int* b){
+    int temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void sortByY(vertex3d* v1, vertex3d* v2, vertex3d* v3){
+    if(v1->y > v2->y){
+        vertexSwap(v1, v2);
+    }
+    if(v1->y > v3->y){
+        vertexSwap(v1, v3);
+    }
+    if(v2->y > v3->y){
+        vertexSwap(v2, v3);
+    }
+}
+
+void segFill(vertex3d base, float width, float height, vertex3d start, vertex3d end, int xRes, int yRes){
+    float segWidth = end.x - start.x;
+    float segHeight = end.y - start.y;
+    int minY = start.y < 0 ? 0 : start.y;
+    int maxY = end.y > yRes ? yRes : end.y;
+    for(int y = minY; y < maxY; y++){
+        int x1 = base.x + width * (y - base.y) / height;
+        int x2 = start.x + segWidth * (y - start.y) / segHeight;
+        if(x1 > x2){
+            intSwap(&x1, &x2);
+        }
+        if(x1 < 0){
+            x1 = 0;
+        }
+        if(x2 > xRes){
+            x2 = xRes;
+        }
+        move_to(y + 1, x1 + 1);
+        for(int x = x1; x < x2; x++){
+            draw_pixel();
+            int idx = y * xRes + x;
+            zBuffer[idx] = 1;
+        }
+    }
+}
+
 void rasterize2(triangle *triangles, int nTriangles, vertex3d *vertices, int xRes, int yRes)
 {
     int zBufferSize = xRes * yRes * sizeof(float);
@@ -179,62 +229,22 @@ void rasterize2(triangle *triangles, int nTriangles, vertex3d *vertices, int xRe
         vertex3d v1 = vertices[triangles[i].v1];
         vertex3d v2 = vertices[triangles[i].v2];
         vertex3d v3 = vertices[triangles[i].v3];
+        
         float area = edgeF(v1, v2, v3);
         if (area < 0)
         {
             continue;
         }
-
-        vertex3d bbul = bbMin(v1, v2, v3);
-        if (bbul.x < 1)
-        {
-            bbul.x = 1;
-        }
-        if (bbul.y < 1)
-        {
-            bbul.y = 1;
-        }
-        vertex3d bblr = bbMax(v1, v2, v3);
-        if (bblr.x > xRes)
-        {
-            bblr.x = xRes;
-        }
-        if (bblr.y > yRes)
-        {
-            bblr.y = yRes;
-        }
-
         
+        sortByY(&v1, &v2, &v3);
 
-        // set_color(triangles[i].color);
+        set_color(triangles[i].color);
+        
+        float height = v3.y - v1.y;
+        float width = v3.x - v1.x;
 
-        for (int x = bbul.x; x <= bblr.x; x++)
-        {
-            for (int y = bbul.y; y <= bblr.y; y++)
-            {
-                vertex3d pixel = {(float)x - 0.5f, (float)y - 0.5f};
-                bool draw = 1;
-                float w3 = edgeF(v1, v2, pixel);
-                float w1 = edgeF(v2, v3, pixel);
-                float w2 = edgeF(v3, v1, pixel);
-                draw &= w1 >= 0;
-                draw &= w2 >= 0;
-                draw &= w3 >= 0;
-                if (draw)
-                {
-                    w1 /= area;
-                    w2 /= area;
-                    w3 /= area;
-                    float z = 1.0f / (v1.z * w1 + v2.z * w2 + v3.z * w3);
-                    if (z < zBuffer[(y - 1) * xRes + x - 1])
-                    {
-                        // move_to(y, x);
-                        // draw_pixel();
-                        zBuffer[(y - 1) * xRes + x - 1] = z;
-                    }
-                }
-            }
-        }
+        segFill(v1, width, height, v1, v2, xRes, yRes);
+        segFill(v1, width, height, v2, v3, xRes, yRes);
     }
     //drawZBuffer(zBuffer, xRes, yRes);
 }
