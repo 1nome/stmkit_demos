@@ -6,6 +6,11 @@ typedef struct
     float x, y, z;
 } vertex3d;
 
+typedef struct
+{
+    int x, y;
+} vertex2dI;
+
 typedef struct{
     unsigned char red, green, blue;
 } RGB;

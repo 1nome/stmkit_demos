@@ -11,8 +11,17 @@
 const float piFourths = 0.785398163398f;
 const float piHalfs = 1.5707963268f;
 
+// function declarations
+float vectorCos(vertex3d v1, vertex3d v2);
+vertex3d triangleNormal(vertex3d v1, vertex3d v2, vertex3d v3);
+
 // funcs for rendering
 float edgeF(vertex3d start, vertex3d end, vertex3d point)
+{
+    return (point.x - start.x) * (end.y - start.y) - (point.y - start.y) * (end.x - start.x);
+}
+
+float edgeFI(vertex3d start, vertex3d end, vertex2dI point)
 {
     return (point.x - start.x) * (end.y - start.y) - (point.y - start.y) * (end.x - start.x);
 }
@@ -32,6 +41,22 @@ vertex3d bbMax(vertex3d v1, vertex3d v2, vertex3d v3)
     ret.x = ceilf(fmaxf(fmaxf(v1.x, v2.x), v3.x));
     ret.y = ceilf(fmaxf(fmaxf(v1.y, v2.y), v3.y));
     ret.z = 0;
+    return ret;
+}
+
+vertex2dI bbMinI(vertex3d v1, vertex3d v2, vertex3d v3)
+{
+    vertex2dI ret;
+    ret.x = floorf(fminf(fminf(v1.x, v2.x), v3.x));
+    ret.y = floorf(fminf(fminf(v1.y, v2.y), v3.y));
+    return ret;
+}
+
+vertex2dI bbMaxI(vertex3d v1, vertex3d v2, vertex3d v3)
+{
+    vertex2dI ret;
+    ret.x = ceilf(fmaxf(fmaxf(v1.x, v2.x), v3.x));
+    ret.y = ceilf(fmaxf(fmaxf(v1.y, v2.y), v3.y));
     return ret;
 }
 
@@ -86,7 +111,7 @@ void rasterize(triangle *triangles, int nTriangles, vertex3d *vertices, int xRes
             continue;
         }
 
-        vertex3d bbul = bbMin(v1, v2, v3);
+        vertex2dI bbul = bbMinI(v1, v2, v3);
         if (bbul.x < 1)
         {
             bbul.x = 1;
@@ -95,7 +120,7 @@ void rasterize(triangle *triangles, int nTriangles, vertex3d *vertices, int xRes
         {
             bbul.y = 1;
         }
-        vertex3d bblr = bbMax(v1, v2, v3);
+        vertex2dI bblr = bbMaxI(v1, v2, v3);
         if (bblr.x > xRes)
         {
             bblr.x = xRes;
@@ -107,18 +132,19 @@ void rasterize(triangle *triangles, int nTriangles, vertex3d *vertices, int xRes
 
         // set_color(triangles[i].color);
 
-        for (int x = bbul.x; x <= bblr.x; x++)
+        vertex2dI pixel;
+        for (pixel.x = bbul.x; pixel.x <= bblr.x; pixel.x++)
         {
-            for (int y = bbul.y; y <= bblr.y; y++)
+            for (pixel.y = bbul.y; pixel.y <= bblr.y; pixel.y++)
             {
                 // can be simplified to
-                vertex3d pixel = {x, y};
+                //vertex3d pixel = {x, y};
                 // without sacrificing much quality
                 //vertex3d pixel = {(float)x - 0.5f, (float)y - 0.5f};
                 bool draw = 1;
-                float w3 = edgeF(v1, v2, pixel);
-                float w1 = edgeF(v2, v3, pixel);
-                float w2 = edgeF(v3, v1, pixel);
+                float w3 = edgeFI(v1, v2, pixel);
+                float w1 = edgeFI(v2, v3, pixel);
+                float w2 = edgeFI(v3, v1, pixel);
                 draw &= w1 >= 0;
                 draw &= w2 >= 0;
                 draw &= w3 >= 0;
@@ -129,10 +155,10 @@ void rasterize(triangle *triangles, int nTriangles, vertex3d *vertices, int xRes
                     // w3 /= area;
                     // float z = 1.0f / (v1.z * w1 + v2.z * w2 + v3.z * w3);
                     float z = area / (v1.z * w1 + v2.z * w2 + v3.z * w3);
-                    int idx = (y - 1) * xRes + x - 1;
+                    int idx = (pixel.y - 1) * xRes + pixel.x - 1;
                     if (z < zBuffer[idx])
                     {
-                        // move_to(y, x);
+                        // move_to(pixel.y, pixel.x);
                         // draw_pixel();
                         zBuffer[idx] = z;
                     }
@@ -409,10 +435,10 @@ void calculateLight(triangle *triangle, vertex3d *vertices, vertex3d skyDir)
 
 void putObjectToWorld(object3d *obj, vertex3d *vertices, triangle *triangles, int vertexOffset, vertex3d skyDir)
 {
-    // int start = Ticks;
+    //int start = Ticks;
     memcpy(vertices, obj->vertices, obj->nVertices * sizeof(vertex3d));
     memcpy(triangles, obj->triangles, obj->nTriangles * sizeof(triangle));
-    // int copied = Ticks;
+    //int copied = Ticks;
 
     rotate3dX_vec(vertices, obj->nVertices, obj->rotX);
     rotate3dY_vec(vertices, obj->nVertices, obj->rotY);
