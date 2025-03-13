@@ -138,9 +138,9 @@ void rasterize(triangle *triangles, int nTriangles, vertex3d *vertices, int xRes
             for (pixel.y = bbul.y; pixel.y <= bblr.y; pixel.y++)
             {
                 // can be simplified to
-                //vertex3d pixel = {x, y};
+                // vertex3d pixel = {x, y};
                 // without sacrificing much quality
-                //vertex3d pixel = {(float)x - 0.5f, (float)y - 0.5f};
+                // vertex3d pixel = {(float)x - 0.5f, (float)y - 0.5f};
                 bool draw = 1;
                 float w3 = edgeFI(v1, v2, pixel);
                 float w1 = edgeFI(v2, v3, pixel);
@@ -166,52 +166,64 @@ void rasterize(triangle *triangles, int nTriangles, vertex3d *vertices, int xRes
             }
         }
     }
-    //drawZBuffer(zBuffer, xRes, yRes);
+    // drawZBuffer(zBuffer, xRes, yRes);
 }
 
-void vertexSwap(vertex3d* a, vertex3d* b){
+void vertexSwap(vertex3d *a, vertex3d *b)
+{
     vertex3d temp = *a;
     *a = *b;
     *b = temp;
 }
 
-void intSwap(int* a, int* b){
+void intSwap(int *a, int *b)
+{
     int temp = *a;
     *a = *b;
     *b = temp;
 }
 
-void sortByY(vertex3d* v1, vertex3d* v2, vertex3d* v3){
-    if(v1->y > v2->y){
+void sortByY(vertex3d *v1, vertex3d *v2, vertex3d *v3)
+{
+    if (v1->y > v2->y)
+    {
         vertexSwap(v1, v2);
     }
-    if(v1->y > v3->y){
+    if (v1->y > v3->y)
+    {
         vertexSwap(v1, v3);
     }
-    if(v2->y > v3->y){
+    if (v2->y > v3->y)
+    {
         vertexSwap(v2, v3);
     }
 }
 
-void segFill(vertex3d base, float width, float height, vertex3d start, vertex3d end, int xRes, int yRes){
+void segFill(vertex3d base, float width, float height, vertex3d start, vertex3d end, int xRes, int yRes)
+{
     float segWidth = end.x - start.x;
     float segHeight = end.y - start.y;
     int minY = start.y < 0 ? 0 : start.y;
     int maxY = end.y > yRes ? yRes : end.y;
-    for(int y = minY; y < maxY; y++){
+    for (int y = minY; y < maxY; y++)
+    {
         int x1 = base.x + width * (y - base.y) / height;
         int x2 = start.x + segWidth * (y - start.y) / segHeight;
-        if(x1 > x2){
+        if (x1 > x2)
+        {
             intSwap(&x1, &x2);
         }
-        if(x1 < 0){
+        if (x1 < 0)
+        {
             x1 = 0;
         }
-        if(x2 > xRes){
+        if (x2 > xRes)
+        {
             x2 = xRes;
         }
         move_to(y + 1, x1 + 1);
-        for(int x = x1; x < x2; x++){
+        for (int x = x1; x < x2; x++)
+        {
             draw_pixel();
             int idx = y * xRes + x;
             zBuffer[idx] = 1;
@@ -229,24 +241,74 @@ void rasterize2(triangle *triangles, int nTriangles, vertex3d *vertices, int xRe
         vertex3d v1 = vertices[triangles[i].v1];
         vertex3d v2 = vertices[triangles[i].v2];
         vertex3d v3 = vertices[triangles[i].v3];
-        
+
         float area = edgeF(v1, v2, v3);
         if (area < 0)
         {
             continue;
         }
-        
+
         sortByY(&v1, &v2, &v3);
 
         set_color(triangles[i].color);
-        
+
+        /*
         float height = v3.y - v1.y;
         float width = v3.x - v1.x;
 
         segFill(v1, width, height, v1, v2, xRes, yRes);
         segFill(v1, width, height, v2, v3, xRes, yRes);
+        */
+
+        float height = v3.y - v1.y;
+        float bottomHeight = v3.y - v2.y;
+        float topHeight = v2.y - v1.y;
+        float width = v3.x - v1.x;
+        float bottomWidth = v3.x - v2.x;
+        float topWidth = v2.x - v1.x;
+        // bounding box
+        int start = v1.y < 0 ? -v1.y : 0;
+        int end = v3.y >= yRes ? v3.y - yRes : 0;
+        // possible optimization:
+        // move xes instead of checking
+
+        for (int y = start; y < height - end; y++)
+        {
+            int x2;
+            if (y > topHeight || !topHeight)
+            {
+                x2 = v2.x + bottomWidth * (float)(y - topHeight) / bottomHeight;
+            }
+            else
+            {
+                x2 = v1.x + topWidth * (float)y / topHeight;
+            }
+
+            int x1 = v1.x + width * (float)y / height;
+
+            if (x1 > x2)
+            {
+                intSwap(&x1, &x2);
+            }
+            if (x1 < 0)
+            {
+                x1 = 0;
+            }
+            if (x2 > xRes)
+            {
+                x2 = xRes;
+            }
+
+            move_to(y + v1.y + 1, x1 + 1);
+            for (int x = x1; x <= x2; x++)
+            {
+                draw_pixel();
+                int idx = y * xRes + x;
+                zBuffer[idx] = 1;
+            }
+        }
     }
-    //drawZBuffer(zBuffer, xRes, yRes);
+    // drawZBuffer(zBuffer, xRes, yRes);
 }
 
 // vertex transformations
@@ -287,7 +349,8 @@ void rotate3dX_vec(vertex3d *v, int n, float theta)
 {
     float cosine = cosf(theta);
     float sine = sinf(theta);
-    for(int i = 0; i < n; i++){
+    for (int i = 0; i < n; i++)
+    {
         float temp = v[i].y;
         v[i].y = cosine * v[i].y - sine * v[i].z;
         v[i].z = sine * temp + cosine * v[i].z;
@@ -306,7 +369,8 @@ void rotate3dY_vec(vertex3d *v, int n, float theta)
 {
     float cosine = cosf(theta);
     float sine = sinf(theta);
-    for(int i = 0; i < n; i++){
+    for (int i = 0; i < n; i++)
+    {
         float temp = v[i].x;
         v[i].x = cosine * v[i].x + sine * v[i].z;
         v[i].z = -sine * temp + cosine * v[i].z;
@@ -325,7 +389,8 @@ void rotate3dZ_vec(vertex3d *v, int n, float theta)
 {
     float cosine = cosf(theta);
     float sine = sinf(theta);
-    for(int i = 0; i < n; i++){
+    for (int i = 0; i < n; i++)
+    {
         float temp = v[i].x;
         v[i].x = cosine * v[i].x - sine * v[i].y;
         v[i].y = sine * temp + cosine * v[i].y;
@@ -445,10 +510,10 @@ void calculateLight(triangle *triangle, vertex3d *vertices, vertex3d skyDir)
 
 void putObjectToWorld(object3d *obj, vertex3d *vertices, triangle *triangles, int vertexOffset, vertex3d skyDir)
 {
-    //int start = Ticks;
+    // int start = Ticks;
     memcpy(vertices, obj->vertices, obj->nVertices * sizeof(vertex3d));
     memcpy(triangles, obj->triangles, obj->nTriangles * sizeof(triangle));
-    //int copied = Ticks;
+    // int copied = Ticks;
 
     rotate3dX_vec(vertices, obj->nVertices, obj->rotX);
     rotate3dY_vec(vertices, obj->nVertices, obj->rotY);
@@ -459,7 +524,7 @@ void putObjectToWorld(object3d *obj, vertex3d *vertices, triangle *triangles, in
         scale3d(vertices + i, obj->scaleX, obj->scaleY, obj->scaleZ);
         translate3d(vertices + i, obj->posX, obj->posY, obj->posZ);
     }
-    //int moved = Ticks;
+    // int moved = Ticks;
 
     for (int i = 0; i < obj->nTriangles; i++)
     {
