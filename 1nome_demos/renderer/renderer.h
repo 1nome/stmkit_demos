@@ -250,42 +250,53 @@ void rasterize2(triangle *triangles, int nTriangles, vertex3d *vertices, int xRe
 
         sortByY(&v1, &v2, &v3);
 
-        set_color(triangles[i].color);
-
-        /*
-        float height = v3.y - v1.y;
-        float width = v3.x - v1.x;
-
-        segFill(v1, width, height, v1, v2, xRes, yRes);
-        segFill(v1, width, height, v2, v3, xRes, yRes);
-        */
+        // set_color(triangles[i].color);
 
         float height = v3.y - v1.y;
-        float bottomHeight = v3.y - v2.y;
         float topHeight = v2.y - v1.y;
-        float width = v3.x - v1.x;
-        float bottomWidth = v3.x - v2.x;
-        float topWidth = v2.x - v1.x;
+        float bottomHeight = v3.y - v2.y;
+
         // bounding box
         int start = v1.y < 0 ? -v1.y : 0;
         int end = v3.y >= yRes ? v3.y - yRes : 0;
-        // possible optimization:
-        // move xes instead of checking
+
+        float step = (v3.x - v1.x) / height;
+        float topStep = (v2.x - v1.x) / topHeight;
+        float bottomStep = (v3.x - v2.x) / bottomHeight;
+        float x1f = v1.x + (float)(start - 1) * step;
+        float x2f = v1.x + (float)(start - 1) * topStep;
+
+        float depthStep = (v3.z - v1.z) / height;
+        float topDepthStep = (v2.z - v1.z) / topHeight;
+        float bottomDepthStep = (v3.z - v2.z) / bottomHeight;
+        float z1 = v1.z + (float)(start - 1) * depthStep;
+        float z2 = v1.z + (float)(start - 1) * topDepthStep;
+
+        bool bottom = false;
+        int rowIdx = ((int)v1.y + start) * xRes;
 
         for (int y = start; y < height - end; y++)
         {
-            int x2;
+            x1f += step;
+            z1 += depthStep;
             if (y > topHeight || !topHeight)
             {
-                x2 = v2.x + bottomWidth * (float)(y - topHeight) / bottomHeight;
+                x2f += bottomStep;
+                z2 += bottomDepthStep;
+                if(!bottom){
+                    x2f = v2.x;
+                    z2 = v2.z;
+                    bottom = true;
+                }
             }
             else
             {
-                x2 = v1.x + topWidth * (float)y / topHeight;
+                x2f += topStep;
+                z2 += topDepthStep;
             }
 
-            int x1 = v1.x + width * (float)y / height;
-
+            int x1 = x1f;
+            int x2 = x2f;
             if (x1 > x2)
             {
                 intSwap(&x1, &x2);
@@ -299,16 +310,23 @@ void rasterize2(triangle *triangles, int nTriangles, vertex3d *vertices, int xRe
                 x2 = xRes;
             }
 
-            move_to(y + v1.y + 1, x1 + 1);
+            float zStep = (z2 - z1) / (x2 - x1);
+            float z = z1;
+
+            // move_to(y + v1.y + 1, x1 + 1);
             for (int x = x1; x <= x2; x++)
             {
-                draw_pixel();
-                int idx = y * xRes + x;
-                zBuffer[idx] = 1;
+                if(zBuffer[rowIdx + x] > z){
+                    //draw_pixel();
+                    zBuffer[rowIdx + x] = z;
+                }
+                z += zStep;
             }
+
+            rowIdx += xRes;
         }
     }
-    // drawZBuffer(zBuffer, xRes, yRes);
+     drawZBuffer(zBuffer, xRes, yRes);
 }
 
 // vertex transformations
