@@ -242,15 +242,20 @@ void rasterize2(triangle *triangles, int nTriangles, vertex3d *vertices, int xRe
         vertex3d v2 = vertices[triangles[i].v2];
         vertex3d v3 = vertices[triangles[i].v3];
 
+        vertex3d normal = triangleNormal(v1, v2, v3);
+        if(normal.z > 0){
+            continue;
+        }
+/*
         float area = edgeF(v1, v2, v3);
         if (area < 0)
         {
             continue;
         }
-
+*/
         sortByY(&v1, &v2, &v3);
 
-        // set_color(triangles[i].color);
+        //set_color(triangles[i].color);
 
         float height = v3.y - v1.y;
         float topHeight = v2.y - v1.y;
@@ -313,9 +318,10 @@ void rasterize2(triangle *triangles, int nTriangles, vertex3d *vertices, int xRe
             float zStep = (z2 - z1) / (x2 - x1);
             float z = z1;
 
-            // move_to(y + v1.y + 1, x1 + 1);
+            //move_to(y + v1.y + 1, x1 + 1);
             for (int x = x1; x <= x2; x++)
             {
+                z = (-normal.x * x - normal.y * y - v1.z) / normal.z;
                 if(zBuffer[rowIdx + x] > z){
                     //draw_pixel();
                     zBuffer[rowIdx + x] = z;
@@ -326,7 +332,7 @@ void rasterize2(triangle *triangles, int nTriangles, vertex3d *vertices, int xRe
             rowIdx += xRes;
         }
     }
-     drawZBuffer(zBuffer, xRes, yRes);
+    drawZBuffer(zBuffer, xRes, yRes);
 }
 
 // vertex transformations
@@ -508,13 +514,13 @@ vertex3d triangleNormal(vertex3d v1, vertex3d v2, vertex3d v3)
     vertex3d ret = vectorDiff(v2, v1);
     vertex3d temp = vectorDiff(v3, v1);
     ret = vectorCross(ret, temp);
-    vectorNormalize(&ret);
     return ret;
 }
 
 void calculateLight(triangle *triangle, vertex3d *vertices, vertex3d skyDir)
 {
     vertex3d normal = triangleNormal(vertices[triangle->v1], vertices[triangle->v2], vertices[triangle->v3]);
+    vectorNormalize(&normal);
     float cos = vectorCos(normal, skyDir);
     // hard-baked value; light = 1
     if (cos < 0)
