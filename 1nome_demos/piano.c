@@ -91,7 +91,7 @@ const uint8_t uartBuffSize = 18;
 uint8_t uartBuff[uartBuffSize];
 
 uint8_t updatekeys(){
-	USART3_dmar_stop();
+	UART_dmar_stop();
 	
 	for(int i = 0; i < nKeys; i++){
 		for(int j = 0; j < uartBuffSize; j++){
@@ -114,7 +114,7 @@ uint8_t updatekeys(){
 	}
 	
 	memset(uartBuff, 0, uartBuffSize);
-	USART3_dmar_continue();
+	UART_dmar_continue();
 	return 0;
 }
 
@@ -127,8 +127,8 @@ BOARD_SETUP void setup(void) {
 	audio_dac_volume(200);
 	I2S3_transmit_dma_start(buff1, buff2, size);
 	
-	USART3_setup();
-	USART3_dmar_setup(uartBuff, uartBuffSize);
+	UART_setup();
+	UART_dmar_setup(uartBuff, uartBuffSize);
 	
 	memset(strings, 0, nKeys);
 	memset(uartBuff, 0, uartBuffSize);

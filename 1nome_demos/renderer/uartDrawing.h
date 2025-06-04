@@ -30,14 +30,14 @@ void flush()
 // Hide the blinking terminal cursor.
 void hide_cursor()
 {
-    USART3_write("\x1b[?25l", 6);
+    UART_write("\x1b[?25l", 6);
     // flush();
 }
 
 // Show the terminal cursor.
 void show_cursor()
 {
-    USART3_write("\x1b[?25h", 6);
+    UART_write("\x1b[?25h", 6);
     // flush();
 }
 
@@ -46,62 +46,62 @@ void show_cursor()
 // Reset the drawing and background color to the default values.
 void reset_color()
 {
-    USART3_write("\x1b[0m", 4);
+    UART_write("\x1b[0m", 4);
     // flush();
 }
 
 // Set the background color to red.
 void set_red_color()
 {
-    USART3_write("\x1b[41;1m", 7);
+    UART_write("\x1b[41;1m", 7);
     // flush();
 }
 
 // Set the background color to green.
 void set_green_color()
 {
-    USART3_write("\x1b[42;1m", 7);
+    UART_write("\x1b[42;1m", 7);
     // flush();
 }
 
 // Set the background color to blue.
 void set_blue_color()
 {
-    USART3_write("\x1b[44;1m", 7);
+    UART_write("\x1b[44;1m", 7);
     // flush();
 }
 
 // Set the background color to white.
 void set_white_color()
 {
-    USART3_write("\x1b[47;1m", 7);
+    UART_write("\x1b[47;1m", 7);
     // flush();
 }
 
 // Set the background color to yellow.
 void set_yellow_color()
 {
-    USART3_write("\x1b[43;1m", 7);
+    UART_write("\x1b[43;1m", 7);
     // flush();
 }
 
 // Set the background color to black.
 void set_black_color()
 {
-    USART3_write("\x1b[40;1m", 7);
+    UART_write("\x1b[40;1m", 7);
     // flush();
 }
 
 void set_color(RGB color)
 {
     char str[20];
-    USART3_write(str, sprintf(str, "\x1b[48;2;%d;%d;%dm", color.red, color.green, color.blue));
+    UART_write(str, sprintf(str, "\x1b[48;2;%d;%d;%dm", color.red, color.green, color.blue));
 }
 
 void set_grayscale(unsigned char scale)
 {
     char str[20];
-    USART3_write(str, sprintf(str, "\x1b[48;2;%d;%d;%dm", scale, scale, scale));
+    UART_write(str, sprintf(str, "\x1b[48;2;%d;%d;%dm", scale, scale, scale));
 }
 
 //---Cursor movement---
@@ -109,28 +109,28 @@ void set_grayscale(unsigned char scale)
 // Move cursor right.
 void move_right()
 {
-    USART3_write("\x1b[1C", 4);
+    UART_write("\x1b[1C", 4);
     // flush();
 }
 
 // Move cursor left.
 void move_left()
 {
-    USART3_write("\x1b[1D", 4);
+    UART_write("\x1b[1D", 4);
     // flush();
 }
 
 // Move cursor up.
 void move_up()
 {
-    USART3_write("\x1b[1A", 4);
+    UART_write("\x1b[1A", 4);
     // flush();
 }
 
 // Move cursor down.
 void move_down()
 {
-    USART3_write("\x1b[1B", 4);
+    UART_write("\x1b[1B", 4);
     // flush();
 }
 
@@ -139,7 +139,7 @@ void move_down()
 void move_to(int line, int column)
 {
     char str[11];
-    USART3_write(str, snprintf(str, 11, "\x1b[%d;%dH", line, column));
+    UART_write(str, snprintf(str, 11, "\x1b[%d;%dH", line, column));
     // flush();
 }
 
@@ -154,13 +154,13 @@ void clear_screen()
     hide_cursor();
 
     // Clear screen
-    USART3_write("\x1b[2J", 4);
+    UART_write("\x1b[2J", 4);
     // Move cursor to origin
     move_to(1, 1);
     // Create canvas
     for (int i = 0; i < canvas_height; i++)
     {
-        USART3_putc('\n');
+        UART_putc('\n');
     }
     move_to(1, 1);
     // flush();
@@ -174,7 +174,7 @@ void clear_screen()
 // otherwise you will just overwrite the previous pixel.
 void draw_pixel()
 {
-    USART3_putc(' ');
+    UART_putc(' ');
     // move_left();
 }
 
@@ -188,7 +188,7 @@ void end_drawing()
     {
         move_down();
     }
-    USART3_putc('\n');
+    UART_putc('\n');
     show_cursor();
 }
 
