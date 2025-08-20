@@ -17,6 +17,8 @@
  *			| a | s | d | f | g | h | j | k | l | ; | ' | \ |
  *			|___|___|___|___|___|___|___|___|___|___|___|___|
  *			keyboard courtesy of DJMcMayhem on StackExchange
+ *
+ *			@attention the camera needs to be completely disconnected
  */
 
 #include "stm32_kit.h"

@@ -7,6 +7,8 @@
  *			the popping you hear with sines is caused by trimming time to 1-sec intervals
  *			although not powering the dac down souldn't damage it,
  *			you should still do it (not reset before the sound stops playing)
+ *
+ *			@attention the camera needs to be completely disconnected
  */
 
 #include "stm32_kit.h"
