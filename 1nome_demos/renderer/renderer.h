@@ -91,16 +91,14 @@ void drawZBuffer(const float* zBuffer, const int xRes, const int yRes)
     }
 }
 
-// float zBuffer[canvas_height * screenWidth];
-int8_t zBuffer[canvas_height * screenWidth];
+float zBuffer[canvas_height * screenWidth];
 
 // renders triangles into the terminal
 // vertices have to be in screen space, else the object is cut away
 void rasterize(const triangle* triangles, const int nTriangles, const vertex3d* vertices, const int xRes,
                const int yRes)
 {
-    // const int zBufferSize = xRes * yRes * sizeof(float);
-    const int zBufferSize = xRes * yRes;
+    const int zBufferSize = xRes * yRes * (int)sizeof(float);
     memset(zBuffer, 0x7F, zBufferSize);
 
     for (int i = 0; i < nTriangles; i++)
@@ -150,8 +148,7 @@ void rasterize(const triangle* triangles, const int nTriangles, const vertex3d* 
                     // w2 /= area;
                     // w3 /= area;
                     // float z = 1.0f / (v1.z * w1 + v2.z * w2 + v3.z * w3);
-                    // const float z = area / (v1.z * w1 + v2.z * w2 + v3.z * w3);
-                    const int8_t z = (int8_t)(area / (v1.z * w1 + v2.z * w2 + v3.z * w3));
+                    const float z = area / (v1.z * w1 + v2.z * w2 + v3.z * w3);
                     const int idx = (pixel.y - 1) * xRes + pixel.x - 1;
                     if (z < zBuffer[idx])
                     {
@@ -203,39 +200,6 @@ void sortByY(vertex3d* v1, vertex3d* v2, vertex3d* v3)
     }
 }
 
-void segFill(const vertex3d base, const float width, const float height, const vertex3d start, const vertex3d end,
-             const int xRes, const int yRes)
-{
-    const float segWidth = end.x - start.x;
-    const float segHeight = end.y - start.y;
-    const int minY = start.y < 0 ? 0 : (int)start.y;
-    const int maxY = (int)end.y > yRes ? yRes : (int)end.y;
-    for (int y = minY; y < maxY; y++)
-    {
-        int x1 = (int)(base.x + width * ((float)y - base.y) / height);
-        int x2 = (int)(start.x + segWidth * ((float)y - start.y) / segHeight);
-        if (x1 > x2)
-        {
-            intSwap(&x1, &x2);
-        }
-        if (x1 < 0)
-        {
-            x1 = 0;
-        }
-        if (x2 > xRes)
-        {
-            x2 = xRes;
-        }
-        move_to(y + 1, x1 + 1);
-        for (int x = x1; x < x2; x++)
-        {
-            draw_pixel();
-            const int idx = y * xRes + x;
-            zBuffer[idx] = 1;
-        }
-    }
-}
-
 void triangle_rasterize(const vertex3d v1, const vertex3d v2, const vertex3d v3, const int xRes, const int yRes)
 {
     bool bottom = false;
@@ -252,17 +216,14 @@ void triangle_rasterize(const vertex3d v1, const vertex3d v2, const vertex3d v3,
     const float topStep = (v2.x - v1.x) / topHeight;
     const float bottomStep = (v3.x - v2.x) / bottomHeight;
 
-    // const float depthStep = (v3.z - v1.z) / height;
-    // const float topDepthStep = (v2.z - v1.z) / topHeight;
-    // const float bottomDepthStep = (v3.z - v2.z) / bottomHeight;
-    // float z1 = v1.z + (start - 1) * depthStep;
-    // float z2 = v1.z + (start - 1) * topDepthStep;
-
-    // int rowIdx = (int)(v1.y + y1) * xRes;
+    const float depthStep = (v3.z - v1.z) / height;
+    const float topDepthStep = (v2.z - v1.z) / topHeight;
+    const float bottomDepthStep = (v3.z - v2.z) / bottomHeight;
 
     const float y1 = v1.y < 0 ? 0 : v1.y;
     const float y2 = v3.y > (float)yRes ? (float)yRes : v3.y;
-    float y = y1;
+    float y = roundf(y1) + 0.5f;
+    int iy = (int)roundf(y1);
     while (y <= y2)
     {
         if (y >= v2.y)
@@ -271,27 +232,13 @@ void triangle_rasterize(const vertex3d v1, const vertex3d v2, const vertex3d v3,
         }
         float x1 = v1.x + (y - v1.y) * step;
         float x2 = bottom ? v2.x + (y - v2.y) * bottomStep : v1.x + (y - v1.y) * topStep;
-        // z1 += depthStep;
-        // if (y > topHeight || !topHeight)
-        // {
-        //     x2 += bottomStep;
-        //     // z2 += bottomDepthStep;
-        //     if (!bottom)
-        //     {
-        //         x2 = v2.x;
-        //         // z2 = v2.z;
-        //         bottom = true;
-        //     }
-        // }
-        // else
-        // {
-        //     x2 += topStep;
-        //     // z2 += topDepthStep;
-        // }
+        float z1 = v1.z + (y - v1.y) * depthStep;
+        float z2 = bottom ? v2.z + (y - v2.y) * bottomDepthStep : v1.z + (y - v1.y) * topDepthStep;
 
         if (x1 > x2)
         {
             floatSwap(&x1, &x2);
+            floatSwap(&z1, &z2);
         }
         if (x1 < 0)
         {
@@ -302,36 +249,33 @@ void triangle_rasterize(const vertex3d v1, const vertex3d v2, const vertex3d v3,
             x2 = (float)xRes;
         }
 
-        // const float zStep = (z2 - z1) / (x2 - x1);
+        const float zStep = (z2 - z1) / (x2 - x1);
 
         // float z = (-normal.x * x - normal.y * y - v1.z) / normal.z * 10;
-        // int px = (int)floorf(x);
-        float x = x1;
+        float x = roundf(x1) + 0.5f;
+        int ix = (int)roundf(x1);
         while (x <= x2)
         {
-            move_to((int)y, (int)x);
-            draw_pixel();
-            // if (zBuffer[0] > 0)
-            // {
-            //     move_to((int)(y + v1.y), (int)x);
-            //     draw_pixel();
-            //     // zBuffer[rowIdx + px] = (int8_t)z;
-            // }
-            // z += zStep;
+            const float z = 1.0f / (z1 + (x - x1) * zStep);
+            if (z < zBuffer[ix + iy * xRes])
+            {
+                move_to(iy, ix);
+                draw_pixel();
+                zBuffer[ix + iy * xRes] = z;
+            }
             x += 1;
-            // px++;
+            ix++;
         }
 
-        // rowIdx += xRes;
         y += 1;
+        iy++;
     }
 }
 
 void rasterize2(const triangle* triangles, const int nTriangles, const vertex3d* vertices, const int xRes,
                 const int yRes)
 {
-    // const int zBufferSize = xRes * yRes * (int)sizeof(float);
-    const int zBufferSize = xRes * yRes;
+    const int zBufferSize = xRes * yRes * (int)sizeof(float);
     memset(zBuffer, 0x7F, zBufferSize);
 
     for (int i = 0; i < nTriangles; i++)

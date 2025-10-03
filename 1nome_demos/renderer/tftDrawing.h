@@ -14,8 +14,9 @@
 // Increase this if you need more height for drawing.
 // However, you will the need to scroll further up to see the
 // beginning of the drawing :)
-#define canvas_height 240
-#define screenWidth 240
+#define canvas_height 120
+#define screenWidth 120
+#define res_scale 2
 
 // Use the functions declared here (`set_red_color`, `move_right`, `draw_pixel`, `animate`, etc.)
 // to draw things.
@@ -62,7 +63,7 @@ void clear_screen()
 // otherwise you will just overwrite the previous pixel.
 void draw_pixel()
 {
-    TFT_draw_pixel(display_x, display_y, curr_color);
+    TFT_draw_rectangle(display_x * res_scale, display_y * res_scale, res_scale, res_scale, curr_color);
 }
 
 // Clears the drawing session, resets colors and cursor.
