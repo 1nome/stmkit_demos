@@ -86,8 +86,7 @@ void drawZBuffer(const float* zBuffer, const int xRes, const int yRes)
             continue;
         }
         set_grayscale((uint8_t)(0xFF - 0xFF * (zBuffer[i] - min) / (max - min)));
-        move_to(i / xRes, i % xRes + 1);
-        draw_pixel();
+        draw_pixel(i % xRes + 1, i / xRes);
     }
 }
 
@@ -152,8 +151,7 @@ void rasterize(const triangle* triangles, const int nTriangles, const vertex3d* 
                     const int idx = (pixel.y - 1) * xRes + pixel.x - 1;
                     if (z < zBuffer[idx])
                     {
-                        move_to(pixel.y, pixel.x);
-                        draw_pixel();
+                        draw_pixel(pixel.x, pixel.y);
                         zBuffer[idx] = z;
                     }
                 }
@@ -259,8 +257,7 @@ void triangle_rasterize(const vertex3d v1, const vertex3d v2, const vertex3d v3,
             const float z = 1.0f / (z1 + (x - x1) * zStep);
             if (z < zBuffer[ix + iy * xRes])
             {
-                move_to(iy, ix);
-                draw_pixel();
+                draw_pixel(ix, iy);
                 zBuffer[ix + iy * xRes] = z;
             }
             x += 1;
@@ -302,6 +299,7 @@ void rasterize2(const triangle* triangles, const int nTriangles, const vertex3d*
 
         triangle_rasterize(v1, v2, v3, xRes, yRes);
     }
+    flush();
     // drawZBuffer(zBuffer, xRes, yRes);
 }
 
