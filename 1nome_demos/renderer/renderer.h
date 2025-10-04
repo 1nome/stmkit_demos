@@ -5,7 +5,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include "tftDrawing.h"
+#include "tftDrawing2.h"
 #include "renderer_defines.h"
 
 const float piFourths = 0.785398163398f;

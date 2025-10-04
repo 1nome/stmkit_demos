@@ -6,9 +6,9 @@
 #include "renderer_defines.h"
 
 // dimensions
-#define canvas_height 60
-#define screenWidth 60
-#define res_scale 4
+#define canvas_height 120
+#define screenWidth 120
+#define res_scale 2
 
 // internal optimization
 

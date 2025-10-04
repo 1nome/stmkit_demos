@@ -2,7 +2,7 @@
 #define SUZANNE
 #include "renderer_defines.h"
 
-vertex3d suzanneV[508] = {
+const vertex3d suzanneV[508] = {
     {0, 0, 0},
     {0.437500f, 0.164062f, 0.765625f},
     {-0.437500f, 0.164062f, 0.765625f},
@@ -515,7 +515,7 @@ vertex3d suzanneV[508] = {
 
 #define GOLDISH_COL {252, 163, 0}
 
-triangle suzanneT[967] = {
+const triangle suzanneT[967] = {
     {47, 3, 45, GOLDISH_COL},
     {4, 48, 46, GOLDISH_COL},
     {45, 5, 43, GOLDISH_COL},
@@ -1485,7 +1485,7 @@ triangle suzanneT[967] = {
     {505, 323, 321, GOLDISH_COL},
 };
 
-object3d suzanne = {
+const object3d suzanne = {
     .nTriangles = 967,
     .nVertices = 508,
     .vertices = suzanneV,

@@ -23,8 +23,8 @@ typedef struct
 
 typedef struct
 {
-    vertex3d *vertices;
-    triangle *triangles;
+    const vertex3d *vertices;
+    const triangle *triangles;
     int nVertices, nTriangles;
     float posX, posY, posZ;
     float scaleX, scaleY, scaleZ;
