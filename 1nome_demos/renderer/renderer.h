@@ -14,6 +14,8 @@ const float piHalfs = 1.5707963268f;
 // function declarations
 float vectorCos(vertex3d v1, vertex3d v2);
 vertex3d triangleNormal(vertex3d v1, vertex3d v2, vertex3d v3);
+RGB calculateLight(const triangle* triangle, const vertex3d* vertices, const material* materials, vertex3d skyDir);
+void vectorNormalize(vertex3d* v);
 
 // funcs for rendering
 float edgeF(const vertex3d start, const vertex3d end, const vertex3d point)
@@ -130,7 +132,7 @@ void rasterize(const triangle* triangles, const int nTriangles, const vertex3d* 
             bblr.y = yRes;
         }
 
-        set_color(triangles[i].color);
+        // set_color(triangles[i].color);
 
         vertex2dI pixel;
         for (pixel.x = bbul.x; pixel.x <= bblr.x; pixel.x++)
@@ -269,35 +271,48 @@ void triangle_rasterize(const vertex3d v1, const vertex3d v2, const vertex3d v3,
     }
 }
 
-void rasterize2(const triangle* triangles, const int nTriangles, const vertex3d* vertices, const int xRes,
-                const int yRes)
+void vertex_to_monitor(vertex3d* v, const int xMul, const int yMul)
+{
+    v->x = (v->x + 1.0f) * (float)xMul;
+    v->y = (float)yMul - (v->y + 1.0f) * (float)yMul * 0.5f;
+}
+
+void rasterize2(const object3d* objects, const int nObjects, const vertex3d* vertices, const int xRes, const int yRes)
 {
     const int zBufferSize = xRes * yRes * (int)sizeof(float);
     memset(zBuffer, 0x7F, zBufferSize);
 
-    for (int i = 0; i < nTriangles; i++)
+    int vertexOffset = 1;
+    for (int i = 0; i < nObjects; i++)
     {
-        vertex3d v1 = vertices[triangles[i].v1];
-        vertex3d v2 = vertices[triangles[i].v2];
-        vertex3d v3 = vertices[triangles[i].v3];
+        const object3d obj = objects[i];
+        for (int j = 0; j < obj.nTriangles; j++){
+            vertex3d v1 = vertices[obj.triangles[j].v1 + vertexOffset];
+            vertex3d v2 = vertices[obj.triangles[j].v2 + vertexOffset];
+            vertex3d v3 = vertices[obj.triangles[j].v3 + vertexOffset];
 
-        // const vertex3d normal = triangleNormal(v1, v2, v3);
-        // if(normal.z > 0){
-        //     continue;
-        // }
+            // const vertex3d normal = triangleNormal(v1, v2, v3);
+            // if(normal.z > 0){
+            //     continue;
+            // }
 
+            const float area = edgeF(v1, v2, v3);
+            if (area < 0)
+            {
+                continue;
+            }
 
-        const float area = edgeF(v1, v2, v3);
-        if (area < 0)
-        {
-            continue;
+            const RGB c = calculateLight(obj.triangles + j, vertices + vertexOffset, obj.materials, vertices[0]);
+            set_color(c);
+
+            vertex_to_monitor(&v1, xRes / 2, yRes);
+            vertex_to_monitor(&v2, xRes / 2, yRes);
+            vertex_to_monitor(&v3, xRes / 2, yRes);
+            sortByY(&v1, &v2, &v3);
+
+            triangle_rasterize(v1, v2, v3, xRes, yRes);
         }
-
-
-        set_color(triangles[i].color);
-        sortByY(&v1, &v2, &v3);
-
-        triangle_rasterize(v1, v2, v3, xRes, yRes);
+        vertexOffset += obj.nVertices;
     }
     flush();
     // drawZBuffer(zBuffer, xRes, yRes);
@@ -486,27 +501,27 @@ vertex3d triangleNormal(const vertex3d v1, const vertex3d v2, const vertex3d v3)
     return ret;
 }
 
-void calculateLight(triangle* triangle, const vertex3d* vertices, const vertex3d skyDir)
+RGB calculateLight(const triangle* triangle, const vertex3d* vertices, const material* materials, const vertex3d skyDir)
 {
     vertex3d normal = triangleNormal(vertices[triangle->v1], vertices[triangle->v2], vertices[triangle->v3]);
     vectorNormalize(&normal);
-    float cos = vectorCos(normal, skyDir);
+    float cos = -vectorDot(normal, skyDir);
     // hard-baked value; light = 1
     if (cos < 0)
     {
         cos = 0;
     }
-    triangle->color.red = (uint8_t)((float)triangle->color.red * cos);
-    triangle->color.green = (uint8_t)((float)triangle->color.green * cos);
-    triangle->color.blue = (uint8_t)((float)triangle->color.blue * cos);
+    const material m = materials[triangle->mat];
+    const RGB r ={(uint8_t)((float)m.d.red * cos),
+        (uint8_t)((float)m.d.green * cos),
+        (uint8_t)((float)m.d.blue * cos)};
+    return r;
 }
 
-void putObjectToWorld(const object3d* obj, vertex3d* vertices, triangle* triangles, const int vertexOffset,
-                      const vertex3d skyDir)
+void putObjectToWorld(const object3d* obj, vertex3d* vertices)
 {
     // int start = Ticks;
     memcpy(vertices, obj->vertices, obj->nVertices * sizeof(vertex3d));
-    memcpy(triangles, obj->triangles, obj->nTriangles * sizeof(triangle));
     // int copied = Ticks;
 
     rotate3dX_vec(vertices, obj->nVertices, obj->rotX);
@@ -520,13 +535,6 @@ void putObjectToWorld(const object3d* obj, vertex3d* vertices, triangle* triangl
     }
     // int moved = Ticks;
 
-    for (int i = 0; i < obj->nTriangles; i++)
-    {
-        calculateLight(triangles + i, vertices, skyDir);
-        triangles[i].v1 += vertexOffset;
-        triangles[i].v2 += vertexOffset;
-        triangles[i].v3 += vertexOffset;
-    }
     /*
     int lit = Ticks;
     char str[50];
@@ -539,24 +547,18 @@ void putObjectToWorld(const object3d* obj, vertex3d* vertices, triangle* triangl
     */
 }
 
-bool makeWorld(const object3d* objects, const int nObjects, vertex3d* vertices, triangle* triangles, int* totalVertices,
-               int* totalTriangles, const int maxVertices, const int maxTriangles, const vertex3d skyDir)
+bool makeWorld(const object3d* objects, const int nObjects, vertex3d* vertices, int* totalVertices, const int maxVertices, const vertex3d skyDir)
 {
-    *totalTriangles = 0;
-    *totalVertices = 0;
+    *totalVertices = 1;
+    vertices[0] = skyDir;
     for (int i = 0; i < nObjects; i++)
     {
-        if ((objects + i)->nTriangles + *totalTriangles > maxTriangles)
-        {
-            return false;
-        }
         if ((objects + i)->nVertices + *totalVertices > maxVertices)
         {
             return false;
         }
-        putObjectToWorld(objects + i, vertices + *totalVertices, triangles + *totalTriangles, *totalVertices, skyDir);
+        putObjectToWorld(objects + i, vertices + *totalVertices);
         *totalVertices += (objects + i)->nVertices;
-        *totalTriangles += (objects + i)->nTriangles;
     }
     return true;
 }
@@ -620,5 +622,7 @@ void toCamera(vertex3d* vertices, const int nVertices, const camera cam)
         vertices[i].x = cam.near * vertices[i].x / vertices[i].z;
         vertices[i].y = cam.near * vertices[i].y / vertices[i].z;
     }
+    // normalize sky dir
+    vectorNormalize(vertices);
 }
 #endif
