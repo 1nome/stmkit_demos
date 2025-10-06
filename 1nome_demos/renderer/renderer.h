@@ -14,7 +14,7 @@ const float piHalfs = 1.5707963268f;
 // function declarations
 float vectorCos(vertex3d v1, vertex3d v2);
 vertex3d triangleNormal(vertex3d v1, vertex3d v2, vertex3d v3);
-RGB calculateLight(const triangle* triangle, const vertex3d* vertices, const material* materials, vertex3d skyDir);
+RGB calculateLight(vertex3d normal, material mat, vertex3d skyDir);
 void vectorNormalize(vertex3d* v);
 
 // funcs for rendering
@@ -88,7 +88,7 @@ void drawZBuffer(const float* zBuffer, const int xRes, const int yRes)
             continue;
         }
         set_grayscale((uint8_t)(0xFF - 0xFF * (zBuffer[i] - min) / (max - min)));
-        draw_pixel(i % xRes + 1, i / xRes);
+        draw_pixel(i % xRes, i / xRes);
     }
 }
 
@@ -256,7 +256,7 @@ void triangle_rasterize(const vertex3d v1, const vertex3d v2, const vertex3d v3,
         int ix = (int)roundf(x1);
         while (x <= x2)
         {
-            const float z = 1.0f / (z1 + (x - x1) * zStep);
+            const float z = z1 + (x - x1) * zStep;
             if (z < zBuffer[ix + iy * xRes])
             {
                 draw_pixel(ix, iy);
@@ -271,51 +271,46 @@ void triangle_rasterize(const vertex3d v1, const vertex3d v2, const vertex3d v3,
     }
 }
 
-void vertex_to_monitor(vertex3d* v, const int xMul, const int yMul)
+void vertex_to_monitor(vertex3d* v, const int xRes, const int yRes)
 {
-    v->x = (v->x + 1.0f) * (float)xMul;
-    v->y = (float)yMul - (v->y + 1.0f) * (float)yMul * 0.5f;
+    v->x = (v->x + 1.0f) * (float)xRes * 0.5f;
+    v->y = (float)yRes - (v->y + 1.0f) * (float)yRes * 0.5f;
 }
 
-void rasterize2(const object3d* objects, const int nObjects, const vertex3d* vertices, const int xRes, const int yRes)
+void rasterize2(const object3d* objects, const int nObjects, const vertex3d* vertices, const int xRes, const int yRes, const vertex3d skyDir)
 {
     const int zBufferSize = xRes * yRes * (int)sizeof(float);
     memset(zBuffer, 0x7F, zBufferSize);
 
-    int vertexOffset = 1;
+    int vertexOffset = 0;
     for (int i = 0; i < nObjects; i++)
     {
         const object3d obj = objects[i];
         for (int j = 0; j < obj.nTriangles; j++){
-            vertex3d v1 = vertices[obj.triangles[j].v1 + vertexOffset];
-            vertex3d v2 = vertices[obj.triangles[j].v2 + vertexOffset];
-            vertex3d v3 = vertices[obj.triangles[j].v3 + vertexOffset];
+            const triangle t = obj.triangles[j];
+            vertex3d v1 = vertices[t.v1 + vertexOffset];
+            vertex3d v2 = vertices[t.v2 + vertexOffset];
+            vertex3d v3 = vertices[t.v3 + vertexOffset];
 
-            // const vertex3d normal = triangleNormal(v1, v2, v3);
-            // if(normal.z > 0){
-            //     continue;
-            // }
-
-            const float area = edgeF(v1, v2, v3);
-            if (area < 0)
-            {
+            const vertex3d normal = triangleNormal(v1, v2, v3);
+            if(normal.z > 0){
                 continue;
             }
 
-            const RGB c = calculateLight(obj.triangles + j, vertices + vertexOffset, obj.materials, vertices[0]);
+            const RGB c = calculateLight(normal, obj.materials[t.mat], skyDir);
             set_color(c);
 
-            vertex_to_monitor(&v1, xRes / 2, yRes);
-            vertex_to_monitor(&v2, xRes / 2, yRes);
-            vertex_to_monitor(&v3, xRes / 2, yRes);
+            vertex_to_monitor(&v1, xRes, yRes);
+            vertex_to_monitor(&v2, xRes, yRes);
+            vertex_to_monitor(&v3, xRes, yRes);
             sortByY(&v1, &v2, &v3);
 
             triangle_rasterize(v1, v2, v3, xRes, yRes);
         }
         vertexOffset += obj.nVertices;
     }
-    flush();
     // drawZBuffer(zBuffer, xRes, yRes);
+    flush();
 }
 
 
@@ -501,20 +496,18 @@ vertex3d triangleNormal(const vertex3d v1, const vertex3d v2, const vertex3d v3)
     return ret;
 }
 
-RGB calculateLight(const triangle* triangle, const vertex3d* vertices, const material* materials, const vertex3d skyDir)
+RGB calculateLight(vertex3d normal, const material mat, const vertex3d skyDir)
 {
-    vertex3d normal = triangleNormal(vertices[triangle->v1], vertices[triangle->v2], vertices[triangle->v3]);
     vectorNormalize(&normal);
-    float cos = -vectorDot(normal, skyDir);
+    float cos = vectorDot(normal, skyDir);
     // hard-baked value; light = 1
     if (cos < 0)
     {
         cos = 0;
     }
-    const material m = materials[triangle->mat];
-    const RGB r ={(uint8_t)((float)m.d.red * cos),
-        (uint8_t)((float)m.d.green * cos),
-        (uint8_t)((float)m.d.blue * cos)};
+    const RGB r ={(uint8_t)((float)mat.d.red * cos),
+        (uint8_t)((float)mat.d.green * cos),
+        (uint8_t)((float)mat.d.blue * cos)};
     return r;
 }
 
@@ -547,10 +540,9 @@ void putObjectToWorld(const object3d* obj, vertex3d* vertices)
     */
 }
 
-bool makeWorld(const object3d* objects, const int nObjects, vertex3d* vertices, int* totalVertices, const int maxVertices, const vertex3d skyDir)
+bool makeWorld(const object3d* objects, const int nObjects, vertex3d* vertices, int* totalVertices, const int maxVertices)
 {
-    *totalVertices = 1;
-    vertices[0] = skyDir;
+    *totalVertices = 0;
     for (int i = 0; i < nObjects; i++)
     {
         if ((objects + i)->nVertices + *totalVertices > maxVertices)
