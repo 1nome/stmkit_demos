@@ -5,8 +5,9 @@
  * @brief	A program that displays the camera output on the tft display.
  *          The data from the camera is copied to a buffer by the DMA (no other way afaik)
  *          The MCU then manually sends it to the display.
- *          My display doesn't handle the high frequency SPI (could be interference between the wires)
+ *          My display doesn't handle the high frequency SPI (interference between the wires)
  *          but seems fine at 16Mhz.
+ *          I wrapped my SCL and SDA with aluminium foil, that fixed the problem.
  *          I didn't bother with rotation so physically rotate the camera or display as needed.
  *          I put the stack to the CCM in my ldscript; lower BUFFER_SIZE if this doesn't compile.
  *          There is a diagram on how to connect up the camera in ./images

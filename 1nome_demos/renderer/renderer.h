@@ -5,8 +5,16 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include "tftDrawing2.h"
 #include "renderer_defines.h"
+
+#if DRAW_SYSTEM == 1
+#include "uartDrawing.h"
+#elif DRAW_SYSTEM == 2
+#include "tftDrawing.h"
+#else
+#include "tftDrawing2.h"
+#endif
+
 
 const float piFourths = 0.785398163398f;
 const float piHalfs = 1.5707963268f;
@@ -292,6 +300,12 @@ void rasterize2(const object3d* objects, const int nObjects, const vertex3d* ver
             vertex3d v2 = vertices[t.v2 + vertexOffset];
             vertex3d v3 = vertices[t.v3 + vertexOffset];
 
+            // extra calculation when the triangle is rendered but an optimization overall
+            const float area = edgeF(v1, v2, v3);
+            if (area < 0)
+            {
+                continue;
+            }
             const vertex3d normal = triangleNormal(v1, v2, v3);
             if(normal.z > 0){
                 continue;
